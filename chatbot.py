@@ -1,4 +1,4 @@
-import os
+.\venv\Scripts\Activate.ps1import os
 from dotenv import load_dotenv
 from groq import Groq
 
