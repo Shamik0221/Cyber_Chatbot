@@ -57,7 +57,7 @@
   .user {
     align-self: flex-end;
     background: #25eb71;
-    color: rgba(10, 20, 22, 0);
+    color: #0a0f1b;
     border-bottom-right-radius: 4px;
   }
   .bot {
@@ -157,13 +157,20 @@
 
     try {
       const response = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
-      });
-      const data = await response.json();
-      typingEl.remove();
-      addMessage(data.reply, "bot");
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    userId: "demo-student-001",     // hardcoded for now; real userId comes in Phase 3
+    query: text,
+    metadata: {
+      courseId: "CYBER101",
+      chapterId: "MOD6"
+    }
+  })
+});
+const data = await response.json();
+typingEl.remove();
+addMessage(data.assistantMessage.text, "bot");
     } catch (err) {
       typingEl.remove();
       addMessage("⚠️ Sorry, I couldn't reach the server. Please try again.", "bot");
