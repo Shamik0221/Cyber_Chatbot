@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from groq import Groq
+from database import save_message, get_history
 
 # --- Configuration ----------------------------------------------------------
 
@@ -106,10 +107,9 @@ def home():
     """Serve the chat UI."""
     return FileResponse("index.html")
 
-
 @app.post("/chat")
 def chat(request: ChatRequest):
-    """Production-shape chat endpoint."""
+    """Production-shape chat endpoint. Saves both messages to DB."""
     if not request.userId or not request.query:
         raise HTTPException(
             status_code=400,
@@ -117,14 +117,22 @@ def chat(request: ChatRequest):
         )
 
     start_time = datetime.now(timezone.utc)
+    metadata_dict = request.metadata.dict() if request.metadata else None
 
-    # 1. Build the user message object (will be persisted in Phase 2)
+    # 1. Build & save the user message
     user_message = {
         "messageId": new_message_id("user"),
         "createdAt": now_iso(),
         "role": "user",
         "text": request.query,
     }
+    save_message(
+        message_id=user_message["messageId"],
+        user_id=request.userId,
+        role="user",
+        text=request.query,
+        metadata=metadata_dict,
+    )
 
     # 2. Call Groq
     try:
@@ -132,16 +140,23 @@ def chat(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
-    # 3. Build the assistant message object
+    # 3. Build & save the assistant message
     assistant_message = {
         "messageId": new_message_id("assist"),
         "createdAt": now_iso(),
         "role": "assistant",
         "text": reply_text,
-        "topicHint": None,   # populated in Phase 4 (RAG)
-        "sources": [],       # populated in Phase 4 (RAG)
-        "confidence": None,  # populated in Phase 5
+        "topicHint": None,
+        "sources": [],
+        "confidence": None,
     }
+    save_message(
+        message_id=assistant_message["messageId"],
+        user_id=request.userId,
+        role="assistant",
+        text=reply_text,
+        metadata=metadata_dict,
+    )
 
     processing_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
 
@@ -152,16 +167,16 @@ def chat(request: ChatRequest):
     }
 
 
+
 @app.get("/history")
 def history(userId: str, limit: int = 15):
-    """Return last N messages for a user. (Stub — DB wiring comes in Phase 2.)"""
+    """Return last N messages for a user from the database."""
     if not userId:
         raise HTTPException(
             status_code=400,
             detail={"error": "Missing userId", "code": "ERR_BAD_REQUEST"},
         )
-    # For now, return empty array. Phase 2 will read from SQLite.
-    return []
+    return get_history(userId, limit)
 
 
 @app.post("/feedback")
