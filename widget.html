@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Module 6 — Cybersecurity Fundamentals | Sprytech Academy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #f8fafc;
+    color: #1e293b;
+    line-height: 1.6;
+  }
+
+  /* ===== Fake course page ===== */
+  .course-header {
+    background: linear-gradient(135deg, #1e3a8a, #6d28d9);
+    color: white;
+    padding: 40px 60px;
+  }
+  .course-header h1 { font-size: 28px; margin-bottom: 8px; }
+  .course-header p { opacity: 0.9; font-size: 14px; }
+
+  .course-content {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 30px;
+  }
+  .course-content h2 {
+    color: #1e293b;
+    margin: 24px 0 16px;
+    font-size: 22px;
+  }
+  .course-content p { margin-bottom: 14px; color: #475569; }
+  .course-content ul { margin: 16px 0 16px 24px; color: #475569; }
+  .course-content li { margin-bottom: 8px; }
+
+  .video-placeholder {
+    background: #1e293b;
+    color: #94a3b8;
+    height: 300px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 24px 0;
+    font-size: 14px;
+  }
+
+  /* ===== Floating Chat Bubble ===== */
+  .chat-bubble {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+    border: 3px solid #2563eb;
+    z-index: 9999;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+    user-select: none;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .chat-bubble img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+  .chat-bubble:hover {
+    transform: scale(1.08);
+    box-shadow: 0 12px 32px rgba(37, 99, 235, 0.5);
+  }
+  .chat-bubble:active { transform: scale(0.95); }
+
+  /* Hide bubble when chat is open (smooth fade) */
+  .chat-bubble.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.5);
+  }
+
+  /* ===== Chat Popup Window ===== */
+  .chat-popup {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 380px;
+    height: 560px;
+    max-height: calc(100vh - 48px);
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10000;
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+  }
+  .chat-popup.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  /* Header */
+  .popup-header {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: white;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .popup-header-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .popup-header-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .popup-header-info { flex: 1; }
+  .popup-header-info h2 { font-size: 16px; font-weight: 600; }
+  .popup-header-info .status {
+    font-size: 12px;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+  }
+  .close-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .close-btn:hover { background: rgba(255,255,255,0.3); }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #f8fafc;
+  }
+  .message {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    line-height: 1.5;
+    font-size: 14px;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+  .user {
+    align-self: flex-end;
+    background: #2563eb;
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+  .bot {
+    align-self: flex-start;
+    background: white;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
+    border-bottom-left-radius: 4px;
+  }
+  .typing {
+    align-self: flex-start;
+    color: #94a3b8;
+    font-style: italic;
+    font-size: 13px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .typing-dots {
+    display: inline-flex;
+    gap: 3px;
+  }
+  .typing-dots span {
+    width: 6px;
+    height: 6px;
+    background: #94a3b8;
+    border-radius: 50%;
+    animation: bounce 1.4s infinite ease-in-out;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* Input area */
+  .input-area {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    background: white;
+    border-top: 1px solid #e2e8f0;
+  }
+  #userInput {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 24px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #userInput:focus { border-color: #2563eb; }
+  #sendBtn {
+    padding: 10px 18px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+  #sendBtn:hover { background: #1d4ed8; }
+  #sendBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Mobile responsive: full screen on small devices */
+  @media (max-width: 480px) {
+    .chat-popup {
+      bottom: 0;
+      right: 0;
+      width: 100%;
+      height: 100%;
+      max-height: 100vh;
+      border-radius: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Simulated course page -->
+  <header class="course-header">
+    <h1>Module 6 — Cybersecurity Fundamentals</h1>
+    <p>Lesson 3: Understanding Firewalls and Network Defense</p>
+  </header>
+
+  <main class="course-content">
+    <div class="video-placeholder">📹 Lesson Video (placeholder)</div>
+
+    <h2>Introduction to Firewalls</h2>
+    <p>A firewall is a network security system that monitors and controls
+       incoming and outgoing network traffic based on predetermined security rules.
+       It acts as a barrier between a trusted internal network and untrusted
+       external networks, such as the Internet.</p>
+
+    <h2>Types of Firewalls</h2>
+    <ul>
+      <li>Packet-filtering firewalls</li>
+      <li>Stateful inspection firewalls</li>
+      <li>Application-layer firewalls</li>
+      <li>Next-generation firewalls (NGFW)</li>
+    </ul>
+
+    <p>Have a question about this lesson? Click the chat bubble in the
+       bottom-right corner to ask CyberMentor!</p>
+  </main>
+
+  <!-- Floating chat bubble -->
+  <button class="chat-bubble" id="chatBubble" title="Open CyberMentor">
+    <img src="/static/bot.jpg" alt="CyberMentor bot" />
+  </button>
+
+  <!-- Chat popup window -->
+  <div class="chat-popup" id="chatPopup">
+    <div class="popup-header">
+      <div class="popup-header-avatar">
+        <img src="/static/bot.jpg" alt="bot" />
+      </div>
+      <div class="popup-header-info">
+        <h2>CyberMentor</h2>
+        <div class="status"><span class="status-dot"></span>Online</div>
+      </div>
+      <button class="close-btn" id="closeBtn" title="Close">✕</button>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="input-area">
+      <input id="userInput" type="text" placeholder="Ask a cybersecurity question..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+<script>
+  const bubble = document.getElementById("chatBubble");
+  const popup = document.getElementById("chatPopup");
+  const closeBtn = document.getElementById("closeBtn");
+  const messagesEl = document.getElementById("messages");
+  const inputEl = document.getElementById("userInput");
+  const sendBtn = document.getElementById("sendBtn");
+
+  const USER_ID = "demo-student-001";   // hardcoded for now; later from your course site
+  const STORAGE_KEY = "cybermentor.bubblePos";
+  const BUBBLE_SIZE = 70;
+  const SAFE_MARGIN = 12;
+
+  // ============================================================
+  // ===== Bubble position management (persisted in browser) =====
+  // ============================================================
+
+  function loadBubblePosition() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch { return null; }
+  }
+
+  function saveBubblePosition(left, top) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ left, top }));
+    } catch {}
+  }
+
+  function clampToViewport(left, top) {
+    const maxLeft = window.innerWidth - BUBBLE_SIZE - SAFE_MARGIN;
+    const maxTop = window.innerHeight - BUBBLE_SIZE - SAFE_MARGIN;
+    return {
+      left: Math.max(SAFE_MARGIN, Math.min(left, maxLeft)),
+      top: Math.max(SAFE_MARGIN, Math.min(top, maxTop)),
+    };
+  }
+
+  function setBubblePosition(left, top) {
+    const clamped = clampToViewport(left, top);
+    bubble.style.left = clamped.left + "px";
+    bubble.style.top = clamped.top + "px";
+    bubble.style.right = "auto";
+    bubble.style.bottom = "auto";
+    return clamped;
+  }
+
+  // Restore saved position on load (or default to bottom-right)
+  function initBubblePosition() {
+    const saved = loadBubblePosition();
+    if (saved) {
+      setBubblePosition(saved.left, saved.top);
+    }
+    // else: leave default CSS position (bottom-right)
+  }
+
+  // Re-clamp if window resizes (keeps bubble visible)
+  window.addEventListener("resize", () => {
+    const saved = loadBubblePosition();
+    if (saved) {
+      const clamped = setBubblePosition(saved.left, saved.top);
+      saveBubblePosition(clamped.left, clamped.top);
+    }
+  });
+
+  // ============================================================
+  // ============ Drag vs Click detection ========================
+  // ============================================================
+
+  let isDragging = false;
+  let dragMoved = false;
+  let startX = 0, startY = 0;
+  let offsetX = 0, offsetY = 0;
+  const DRAG_THRESHOLD = 5;   // pixels before we count it as a drag
+
+  function getEventCoords(e) {
+    if (e.touches && e.touches[0]) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onPointerDown(e) {
+    const coords = getEventCoords(e);
+    startX = coords.x;
+    startY = coords.y;
+    const rect = bubble.getBoundingClientRect();
+    offsetX = coords.x - rect.left;
+    offsetY = coords.y - rect.top;
+    isDragging = true;
+    dragMoved = false;
+    bubble.style.transition = "none";          // no animation while dragging
+    bubble.style.cursor = "grabbing";
+  }
+
+  function onPointerMove(e) {
+    if (!isDragging) return;
+    const coords = getEventCoords(e);
+    const dx = coords.x - startX;
+    const dy = coords.y - startY;
+
+    if (!dragMoved && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+      dragMoved = true;
+    }
+    if (dragMoved) {
+      e.preventDefault();
+      setBubblePosition(coords.x - offsetX, coords.y - offsetY);
+    }
+  }
+
+  function onPointerUp(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    bubble.style.transition = "";              // restore animations
+    bubble.style.cursor = "pointer";
+
+    if (dragMoved) {
+      // Save the new position
+      const rect = bubble.getBoundingClientRect();
+      saveBubblePosition(rect.left, rect.top);
+    } else {
+      // It was a click, not a drag → open the chat
+      openChat();
+    }
+  }
+
+  // Mouse events
+  bubble.addEventListener("mousedown", onPointerDown);
+  document.addEventListener("mousemove", onPointerMove);
+  document.addEventListener("mouseup", onPointerUp);
+
+  // Touch events (for mobile/tablet)
+  bubble.addEventListener("touchstart", onPointerDown, { passive: true });
+  document.addEventListener("touchmove", onPointerMove, { passive: false });
+  document.addEventListener("touchend", onPointerUp);
+
+  // ============================================================
+  // ===== Open / close popup ===================================
+  // ============================================================
+
+  let historyLoaded = false;   // ensures we only load once per page session
+
+  async function openChat() {
+    popup.classList.add("open");
+    bubble.classList.add("hidden");
+    setTimeout(() => inputEl.focus(), 250);
+
+    // Load history on first open
+    if (!historyLoaded) {
+      await loadHistory();
+      historyLoaded = true;
+    }
+  }
+
+  async function loadHistory() {
+    // Show a small loading hint
+    const loadingEl = document.createElement("div");
+    loadingEl.className = "typing";
+    loadingEl.innerHTML = 'Loading your conversation <span class="typing-dots"><span></span><span></span><span></span></span>';
+    messagesEl.appendChild(loadingEl);
+
+    try {
+      const response = await fetch(`/history?userId=${encodeURIComponent(USER_ID)}&limit=15`);
+      const messages = await response.json();
+      loadingEl.remove();
+
+      if (!Array.isArray(messages) || messages.length === 0) {
+        // First-time user → show welcome message
+        addMessage("Hi! I'm CyberMentor 👋 Ask me anything about cybersecurity, ethical hacking, or networking fundamentals.", "bot");
+        return;
+      }
+
+      // Render each historical message as the right kind of bubble
+      messages.forEach(msg => {
+        const who = (msg.role === "user") ? "user" : "bot";
+        addMessage(msg.text, who);
+      });
+    } catch (err) {
+      loadingEl.remove();
+      addMessage("⚠️ Couldn't load previous conversation. Starting fresh.", "bot");
+    }
+  }
+  function closeChat() {
+    popup.classList.remove("open");
+    bubble.classList.remove("hidden");
+  }
+  closeBtn.addEventListener("click", closeChat);
+
+  // ============================================================
+  // ===== Send message =========================================
+  // ============================================================
+
+  function addMessage(text, who) {
+    const div = document.createElement("div");
+    div.className = "message " + who;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    addMessage(text, "user");
+    inputEl.value = "";
+    sendBtn.disabled = true;
+
+    const typingEl = document.createElement("div");
+    typingEl.className = "typing";
+    typingEl.innerHTML = 'CyberMentor is typing <span class="typing-dots"><span></span><span></span><span></span></span>';
+    messagesEl.appendChild(typingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: USER_ID,
+          query: text,
+          metadata: { courseId: "CYBER101", chapterId: "MOD6" }
+        })
+      });
+      const data = await response.json();
+      typingEl.remove();
+      addMessage(data.assistantMessage.text, "bot");
+    } catch (err) {
+      typingEl.remove();
+      addMessage("⚠️ Sorry, I couldn't reach the server. Please try again.", "bot");
+    }
+
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+
+  sendBtn.addEventListener("click", sendMessage);
+  inputEl.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
+  });
+
+  // Initialize on page load
+  initBubblePosition();
+</script>
+</body>
+</html>

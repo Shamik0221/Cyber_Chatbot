@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from groq import Groq
 from database import save_message, get_history
@@ -44,6 +45,7 @@ the user asks for more detail)."""
 # --- FastAPI app ------------------------------------------------------------
 
 app = FastAPI(title="CyberMentor API", version="1.0.0")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -106,6 +108,10 @@ class FeedbackRequest(BaseModel):
 def home():
     """Serve the chat UI."""
     return FileResponse("index.html")
+@app.get("/widget")
+def widget_demo():
+    """Serve the new floating-widget chat (Phase 2)."""
+    return FileResponse("widget.html")
 
 @app.post("/chat")
 def chat(request: ChatRequest):
