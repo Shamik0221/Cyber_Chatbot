@@ -7,9 +7,9 @@ import re
 
 
 # --- Tuning knobs -----------------------------------------------------------
-TARGET_WORDS = 350      # ideal chunk size in words
-MAX_WORDS = 500         # never exceed this
-OVERLAP_WORDS = 50      # words shared between consecutive chunks
+TARGET_WORDS = 180      # ideal chunk size in words
+MAX_WORDS = 280      # never exceed this
+OVERLAP_WORDS = 40      # words shared between consecutive chunks
 
 
 def split_into_paragraphs(text: str) -> list:
