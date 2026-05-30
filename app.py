@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from groq import Groq
 from database import save_message, get_history
+from retriever import retrieve
 
 # --- Configuration ----------------------------------------------------------
 
@@ -19,28 +20,37 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 MODEL = "llama-3.3-70b-versatile"
 
-SYSTEM_PROMPT = """You are CyberMentor, a friendly cybersecurity tutor.
+SYSTEM_PROMPT = """You are CyberMentor, a friendly cybersecurity tutor for an online course.
 
-You ONLY answer questions related to cybersecurity topics, including:
-- Cybersecurity basics and fundamentals
-- Ethical hacking
-- Penetration testing
-- Networking fundamentals (as they relate to security)
-- Cryptography, firewalls, malware, phishing, authentication
-- Security tools (Wireshark, Nmap, Burp Suite, etc.)
-- Cyber attacks and defenses
+You answer cybersecurity-related questions for students. Use this priority order:
 
-If the user asks ANYTHING not related to cybersecurity (cooking, movies,
-sports, personal advice, general coding, politics, celebrities, health,
-travel, or anything off-topic), you MUST respond with exactly this
-message and nothing else:
+1. PREFER THE COURSE MATERIAL:
+   If the "Course Material" section below the student's question contains the
+   answer, answer FROM that material. End with a line: "Source: ModuleXX"
+   (using the exact module name shown in the material).
 
-"I'm CyberMentor, your cybersecurity tutor. I can only help with topics
-related to this course — like networking, ethical hacking, or penetration
-testing. Could you please ask me something about cybersecurity?"
+2. FALL BACK TO GENERAL CYBERSECURITY KNOWLEDGE:
+   If the course material is missing, thin, or marked "(no relevant course
+   material found)" — but the question is still about cybersecurity, ethical
+   hacking, networking, encryption, security tools, or any related technical
+   topic — answer it using your general cybersecurity knowledge.
+   In that case, end with the line: "Source: General cybersecurity knowledge
+   (not in course)".
 
-Keep answers clear, beginner-friendly, and concise (2-4 sentences unless
-the user asks for more detail)."""
+3. REFUSE OFF-TOPIC QUESTIONS:
+   If the question is not about cybersecurity in any way (e.g., cooking,
+   sports, movies, personal advice, general coding unrelated to security),
+   reply with exactly:
+   "I'm CyberMentor, your cybersecurity tutor. I can only help with topics
+   related to cybersecurity. Could you please ask me something related to
+   the course?"
+
+General rules:
+- Keep answers clear, beginner-friendly, and concise (2-5 sentences unless
+  more detail is asked).
+- Never invent module numbers that don't appear in the provided material.
+- Never claim something is "in the course" if it isn't.
+"""
 
 # --- FastAPI app ------------------------------------------------------------
 
@@ -67,17 +77,41 @@ def new_message_id(prefix: str = "msg") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
-def call_groq(user_query: str) -> str:
-    """Send the user's question to Groq and return the AI's reply text."""
+def call_groq(user_query: str, course_context: str, used_course_material: bool) -> str:
+    """
+    Send the user's question to Groq. If course material was retrieved,
+    include it; otherwise tell the model to use general cybersecurity knowledge.
+    """
+    if used_course_material:
+        # Course material was found — include it for grounded answers
+        user_message = (
+            f"Course Material:\n"
+            f"{course_context}\n\n"
+            f"Student Question:\n"
+            f"{user_query}"
+        )
+    else:
+        # No course material — explicitly tell the model to fall back
+        user_message = (
+            f"(NOTE: No relevant course material was retrieved for this question. "
+            f"If the question is about cybersecurity, answer it using your general "
+            f"cybersecurity knowledge and end with the line: "
+            f"'Source: General cybersecurity knowledge (not in course)'. "
+            f"If it is not about cybersecurity, refuse as instructed.)\n\n"
+            f"Student Question:\n"
+            f"{user_query}"
+        )
+
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_query},
+            {"role": "user", "content": user_message},
         ],
         temperature=0.3,
     )
     return response.choices[0].message.content
+
 
 # --- Request/Response models (the "shape" of API data) ----------------------
 
@@ -102,16 +136,20 @@ class FeedbackRequest(BaseModel):
     rating: int  # 1 = thumbs up, -1 = thumbs down
     comment: Optional[str] = None
 
+
 # --- Endpoints --------------------------------------------------------------
 
 @app.get("/")
 def home():
     """Serve the chat UI."""
     return FileResponse("index.html")
+
+
 @app.get("/widget")
 def widget_demo():
     """Serve the new floating-widget chat (Phase 2)."""
     return FileResponse("widget.html")
+
 
 @app.post("/chat")
 def chat(request: ChatRequest):
@@ -140,13 +178,28 @@ def chat(request: ChatRequest):
         metadata=metadata_dict,
     )
 
-    # 2. Call Groq
+    # 2. Retrieve relevant course chunks
+    retrieval = retrieve(request.query, n_results=4)
+
+    if retrieval["has_good_match"]:
+        # Course material found — bundle chunks with their module labels
+        labelled_chunks = []
+        for module, chunk in zip(retrieval["modules"], retrieval["chunks"]):
+            labelled_chunks.append(f"[From {module}]\n{chunk}")
+        course_context = "\n\n---\n\n".join(labelled_chunks)
+        used_course_material = True
+    else:
+        # No good match — bot will fall back to general knowledge
+        course_context = ""
+        used_course_material = False
+
+    # 3. Call Groq with the question + retrieved chunks (or none)
     try:
-        reply_text = call_groq(request.query)
+        reply_text = call_groq(request.query, course_context, used_course_material)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
-    # 3. Build & save the assistant message
+    # 4. Build & save the assistant message
     assistant_message = {
         "messageId": new_message_id("assist"),
         "createdAt": now_iso(),
@@ -173,7 +226,6 @@ def chat(request: ChatRequest):
     }
 
 
-
 @app.get("/history")
 def history(userId: str, limit: int = 15):
     """Return last N messages for a user from the database."""
@@ -193,5 +245,4 @@ def feedback(request: FeedbackRequest):
             status_code=400,
             detail={"error": "rating must be 1 or -1", "code": "ERR_BAD_REQUEST"},
         )
-    # For now, just acknowledge.
     return {"status": "received", "messageId": request.messageId}
