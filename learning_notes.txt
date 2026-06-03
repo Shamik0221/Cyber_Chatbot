@@ -1,0 +1,204 @@
+CYBERSECURITY AI CHATBOT — PROJECT LEARNING NOTES
+SECTION 1 — SHORT PROJECT DESCRIPTION
+This project is an AI-powered chatbot called "CyberMentor," built to work inside a cybersecurity e-learning website. The chatbot acts as a virtual tutor for students taking cybersecurity courses.
+Its main rule is that it only answers questions related to cybersecurity — topics like ethical hacking, networking, penetration testing, firewalls, and similar areas covered across 10 course modules. If a student asks anything outside this subject (for example, cooking or sports), the chatbot politely refuses and asks them to stay on topic.
+The chatbot is also being connected to the institute's actual course notes, so its answers come from the real study material the students are taught, not from generic internet knowledge.
+
+
+SECTION 2 — HOW THE PROJECT WORKS (THE WORKAROUND / FLOW)
+The chatbot works through a chain of connected parts. Here is the simple flow from start to finish:
+A student opens the course website and sees a small floating chat button in the corner of the screen. When they click it, a chat window opens. The student types a cybersecurity question and presses send.
+The question travels from the web page to a backend server (the "brain controller" of the system). The backend first checks whether the question is about cybersecurity. If it is not, the backend sends back a polite refusal message.
+If the question is valid, the backend looks through the stored course material to find the most relevant pieces of content related to that question. It then sends both the question and that relevant course content to an AI language model. The AI reads everything and writes a clear, beginner-friendly answer.
+The backend then saves both the student's question and the AI's answer into a database, so the conversation is never lost. Finally, the answer is sent back to the chat window and displayed to the student.
+In short: Student question → website → backend → topic check → find relevant course content → AI generates answer → save to database → show answer to student.
+
+
+
+
+SECTION 3 — TECHNOLOGY USED IN DEVELOPMENT
+The project uses the following technologies, each with a specific job:
+Programming language — Python is used for the backend logic and all the AI-related processing.
+Backend framework — FastAPI is used to build the server and create the connection points (called API endpoints) that the website talks to.
+AI language model — The Groq service running the Llama 3.3 model is used as the "brain" that generates answers.
+Database — Supabase, which provides a cloud-hosted PostgreSQL database, is used to permanently store every chat conversation.
+Frontend — HTML, CSS, and JavaScript are used to build the floating chat widget that students see and interact with.
+Document reading — Two Python libraries, python-docx and odfpy, are used to read the course notes, because the notes are in Word (.docx) and OpenDocument (.odt) formats.
+Embeddings — A local AI model called sentence-transformers (all-MiniLM-L6-v2) is used to convert course text into a numerical form that a computer can search by meaning.
+Vector database — Chroma is used to store the numerical form of the course content so it can be searched quickly.
+Supporting tools — Visual Studio Code is the code editor, Git and GitHub are used to save and back up the code, and a virtual environment (venv) keeps the project's software libraries isolated and organized.
+
+
+SECTION 4 — LEARNING LOG (WHAT, WHY, AND HOW — IN SIMPLE LANGUAGE)
+This section explains the key concepts learned during the project, why each one was needed, and how it was used.
+LLM (Large Language Model) API
+What it is: A large language model is an AI that can understand and write human-like text. An API is a way for our code to send requests to that AI over the internet.
+Why we used it: Our chatbot needs to generate intelligent answers to student questions, and we cannot build an AI brain from scratch.
+How we used it: We connected our Python code to the Groq service, which runs the Llama 3.3 model. Our code sends a question and receives an answer back.
+Prompt Engineering / System Prompt
+What it is: A system prompt is a set of instructions given to the AI that tells it how to behave — its personality, its rules, and its limits.
+Why we used it: We needed the AI to act as a cybersecurity tutor and to refuse off-topic questions, instead of answering anything like a general chatbot.
+How we used it: We wrote a detailed system prompt describing the bot's identity, the topics it is allowed to discuss, the exact wording for refusing off-topic questions, and the tone it should use.
+Roles (system / user / assistant)
+What it is: Every message in an AI conversation is labelled with a role. "System" is the instructions, "user" is the human's message, and "assistant" is the AI's reply.
+Why we used it: The AI needs to know who said what in order to respond correctly.
+How we used it: When our code talks to the AI, it sends the messages clearly labelled with these roles. We also store the user and assistant messages in our database.
+Guardrails
+What it is: Guardrails are safety rules that limit what an AI is allowed to do or talk about.
+Why we used it: The chatbot must stay strictly on the subject of cybersecurity and not answer unrelated questions.
+How we used it: Through the system prompt, we instructed the AI to detect off-topic questions and reply with a fixed refusal message.
+REST API and Endpoints
+What it is: An API is a doorway that lets two pieces of software talk to each other. An endpoint is one specific doorway for one specific job.
+Why we used it: The chat window on the website needs a way to send questions to the backend and receive answers.
+How we used it: Using FastAPI, we built three endpoints — one for chatting, one for loading past conversation history, and one for collecting feedback.
+Database and Persistence
+What it is: A database is an organized system for storing information permanently. Persistence means the data survives even after the program stops.
+Why we used it: Without a database, every conversation would disappear when the server restarts.
+How we used it: We set up a cloud PostgreSQL database on Supabase and designed a table that stores each message with details like the user, the role, the text, and the time.
+Environment Variables and Secret Management
+What it is: Environment variables are a safe place to store private information like passwords and API keys, kept separate from the main code.
+Why we used it: Secret keys must never be exposed publicly or uploaded to the internet, as this is a serious security risk.
+How we used it: We stored all keys and the database connection string in a hidden file called .env, and used a .gitignore file to make sure this file is never uploaded to GitHub.
+Version Control (Git and GitHub)
+What it is: Git is a tool that tracks changes to code over time. GitHub is an online place to store that code.
+Why we used it: It creates safe save points, allows us to undo mistakes, and backs up the project online.
+How we used it: After completing each step, we saved the changes with a descriptive message and uploaded them to GitHub.
+Frontend Widget and User Experience
+What it is: The frontend is the visible part of the application that users interact with. A widget is a small, self-contained interface element.
+Why we used it: Students need an easy, friendly way to access the chatbot from any course page.
+How we used it: We built a floating chat bubble that can be dragged around the screen, remembers its position, opens into a chat window, works on mobile devices, and loads previous conversation history.
+Document Parsing
+What it is: Parsing means taking data in one format and converting it into a format a program can use. Here, it means extracting plain readable text from Word and OpenDocument files.
+Why we used it: The course notes are stored in document files, but the AI system can only work with plain text.
+How we used it: We wrote a Python program that opens each of the 10 module files and pulls out all the readable text.
+Chunking
+What it is: Chunking means splitting a long document into small, meaningful pieces.
+Why we used it: A full module is too large to give to the AI for every question. Smaller pieces allow the system to find and use only the most relevant part.
+How we used it: We wrote a program that splits each module into pieces of about 350 words, with a small overlap between pieces so that no idea gets cut in half. This produced 108 chunks from the 10 modules.
+Embeddings
+What it is: An embedding is a way of turning a piece of text into a list of numbers that represents its meaning. Texts with similar meanings get similar numbers.
+Why we used it: Computers cannot understand meaning directly. Embeddings let the system compare pieces of text by meaning rather than by exact words.
+How we used it: We used a local AI model called sentence-transformers to convert text into a list of 384 numbers. We tested it and confirmed that two sentences about network security scored as highly similar even though they shared no common words, while an unrelated sentence about food scored as not similar at all.
+Semantic Search
+What it is: Semantic search means finding information based on meaning instead of matching exact keywords.
+Why we used it: A student may ask a question using different words than the course notes use. Semantic search still finds the correct content.
+How we used it: By comparing the embedding of the student's question with the embeddings of the course chunks, the system can find the chunks that are closest in meaning.
+Vector Database (Chroma)
+What it is: A vector database is a special database designed to store embeddings (lists of numbers) and search through them very quickly.
+Why we used it: A normal database cannot efficiently search by meaning. A vector database is built exactly for this.
+How we used it: This is being set up in the current stage of the project. The 108 course chunks and their embeddings will be stored in Chroma so they can be searched instantly.
+RAG (Retrieval-Augmented Generation)
+What it is: RAG is a method where the system first retrieves relevant information and then asks the AI to generate an answer using that information.
+Why we used it: It makes the chatbot answer from the actual course material instead of from generic knowledge, which makes the answers accurate and trustworthy for students.
+How we used it: The project is building this in stages — reading documents, chunking them, embedding them, storing them, and finally retrieving the right chunks for each question and sending them to the AI.
+
+SECTION 5 — PROGRESS STATUS
+Completed so far:
+The working prototype, the production-shaped backend with a cloud database, the floating chat widget, and the first three steps of the course-content system — reading the documents, splitting them into chunks, and setting up the embedding model.
+Currently in progress:
+Setting up the vector database (Chroma) and connecting the retrieval system so the chatbot answers from the actual course notes.
+Still to come:
+Improved guardrails and a hint system, a feedback feature, final polish, and deploying the chatbot to a live cloud environment so real students can use it.
+
+That covers everything done so far in language a third person can follow. Want me to also save this as a proper formatted file (Word or Markdown) that you can submit directly, instead of plain text? I can generate that for you.
+
+
+
+
+CYBERSECURITY AI CHATBOT — PHASE-WISE DEVELOPMENT PLAN
+This project is being built in seven phases. Each phase produces something complete and working before moving to the next. This approach is called "building in layers" — start simple, then add capability step by step.
+PHASE 0 — THE PROTOTYPE (Completed)
+Goal: Build the simplest possible working chatbot to prove the idea works.
+What was developed:
+A basic chatbot was created that could answer cybersecurity questions and refuse off-topic ones. It ran in two simple forms — first as a text chatbot in the terminal, then as a basic web page with a chat box. It connected to an AI language model to generate answers.
+Result at the end of this phase: A working demo that could be shown to others, proving the concept was possible.
+
+
+PHASE 1 — THE PRODUCTION BACKEND (Completed)
+Goal: Turn the simple prototype into a properly structured backend with permanent storage.
+What was developed:
+The chatbot's backend was rebuilt in a professional structure using the FastAPI framework. Three connection points (endpoints) were created — one for chatting, one for loading past conversations, and one for feedback. A cloud database (Supabase PostgreSQL) was set up so that every conversation is saved permanently and is not lost when the server restarts. The system was also given a proper, organized code structure with separate files for different jobs.
+Result at the end of this phase: A real, production-quality backend that stores all chat history in the cloud and can handle multiple users separately.
+
+
+PHASE 2 — THE FLOATING CHAT WIDGET (Completed)
+Goal: Replace the basic chat page with a professional-looking chat widget.
+What was developed:
+A floating chat bubble was created that sits in the corner of the course website, similar to chat widgets seen on professional websites. The bubble can be dragged anywhere on the screen and remembers its position. Clicking it opens a smooth chat window with a friendly bot character, a typing indicator, and a close button. The widget works on mobile phones as well, and it automatically loads the student's previous conversation when opened.
+Result at the end of this phase: A polished, professional chat widget that looks and behaves like a real commercial product.
+
+
+PHASE 3 — COURSE-AWARE AI USING RAG (In Progress)
+Goal: Make the chatbot answer from the institute's actual course notes instead of generic knowledge.
+What is being developed:
+The 10 course modules are being processed so the chatbot can use them. First, the course documents are read and their text extracted. Then the text is split into small, manageable pieces called chunks. Each chunk is converted into a numerical form (an embedding) that allows searching by meaning. These chunks are then stored in a special vector database. Finally, the chatbot will be connected so that for every question, it finds the most relevant course chunks and uses them to write an accurate answer.
+Steps in this phase: Reading documents (done), chunking the text (done), setting up the embedding model (done), storing chunks in the vector database (in progress), and connecting retrieval to the chatbot (upcoming).
+Result at the end of this phase: A chatbot that answers using the real course material, making its answers accurate and trustworthy for students.
+
+
+PHASE 4 — SMARTER GUARDRAILS AND HINT SYSTEM (Upcoming)
+Goal: Improve how the chatbot guides students and controls its own behavior.
+What will be developed:
+The topic-checking system will be made more reliable so the chatbot stays strictly on cybersecurity. A hint system will be added, where instead of immediately giving full answers, the chatbot can offer progressive hints — a small hint first, then a bigger one, then the full explanation. This encourages students to think and learn rather than just copying answers.
+Result at the end of this phase: A chatbot that behaves more like a real tutor — guiding rather than simply answering.
+
+
+PHASE 5 — FEEDBACK AND RESPONSE QUALITY (Upcoming)
+Goal: Allow students to rate answers and let the system improve.
+What will be developed:
+A feedback feature will be completed, allowing students to mark answers as helpful or unhelpful using simple thumbs-up or thumbs-down buttons. This feedback will be stored so the quality of the chatbot can be measured and improved over time. The chatbot's answers will also be improved to show which course module an answer came from.
+Result at the end of this phase: A chatbot that collects feedback and shows the source of its answers, making it more transparent and trustworthy.
+
+PHASE 6 — POLISH AND MONITORING (Upcoming)
+Goal: Add finishing touches and the ability to monitor how the chatbot is used.
+What will be developed:
+Final improvements will be made to the look and feel of the chatbot. Usage tracking will be added so the institute can see how often the chatbot is used and what students ask about. Small quality-of-life features will be added, such as the ability to view or clear conversations. A simple setup process will also be created so the project can be installed easily on a new computer.
+Result at the end of this phase: A complete, refined product ready for real use, with the ability to monitor its performance.
+
+
+PHASE 7 — DEPLOYMENT TO LIVE ENVIRONMENT (Upcoming)
+Goal: Make the chatbot available online for real students to use.
+What will be developed:
+Until this phase, the chatbot runs only on the developer's laptop. In this phase, the entire system will be moved to a cloud server that runs all day and night. The local database and storage will be replaced with permanent cloud versions. The chatbot will be connected to a real web address so that students can access it from anywhere, at any time.
+Result at the end of this phase: A fully live cybersecurity chatbot, accessible to real students on the internet, running independently of the developer's computer.
+
+SUMMARY OF PROGRESS
+Completed: Phase 0, Phase 1, and Phase 2 — the working prototype, the production backend with cloud storage, and the professional floating chat widget.
+In Progress: Phase 3 — making the chatbot answer from the actual course notes using RAG.
+Upcoming: Phase 4 to Phase 7 — smarter tutoring features, feedback collection, final polish, and deployment to a live online environment.
+
+That's the complete phase-wise plan in simple language. Want me to combine this with the earlier learning notes and generate one clean, formatted document (Word or PDF) that you can submit as a single file?Opus 4.7 Adaptive
+
+
+
+Learning while devlopment of Phase 3 step 3.4
+genuine RAG engineering lesson worth writing in your learning_notes.txt:
+
+Lesson: Before tuning a retrieval system, test it with a question you KNOW the content answers well. If that works, the system is fine — a weak result for another query is a content issue, not a code bug.
+
+Lesson — RAG content dependency: RAG retrieval quality depends on content quality. We tested "CIA triad" and got weak results; a content check revealed the phrase appears only once in 250 pages. The system was working correctly — it honestly signaled thin content via high distance scores. Always verify content coverage before blaming the retrieval code.
+
+
+Phase 3 , Step 3.5 explaination 
+Phase 3 — Step 3.5: Connect RAG to your chatbot
+This is it — the final step of Phase 3. Everything you've built since Step 3.1 comes together here. Let's go.
+💡 Concept — What we're about to do
+Right now your /chat endpoint does this:
+question → Groq → answer
+After this step, it will do this:
+question → embed it → search Chroma for relevant chunks → 
+check match quality → build prompt with chunks → Groq → answer (from YOUR course)
+The new ingredient is context injection — we retrieve relevant course chunks and put them into the prompt, so Groq answers using your material instead of its generic training knowledge. That's the "Augmented" in Retrieval-Augmented Generation. 
+
+Tiered prompting: A system prompt can give the AI a priority list of behaviors. We use a three-tier rule: (1) answer from course material if available, (2) fall back to general knowledge for any cybersecurity topic, (3) refuse anything fully off-topic. The bot transparently labels which source it used, so students can tell when they're reading course material vs general knowledge.
+
+Phase 4 — Step 4.1: The Doorman (Pre-Check Guardrail)
+💡 Concept — What is a "doorman" and why do we need it?
+Right now, the only thing stopping bad questions from reaching the AI is a paragraph in the system prompt that says "refuse off-topic stuff." That's like having ONE security guard who is also serving drinks at the bar. They might miss things when busy.
+Important: The doorman will allow legitimate cybersecurity learning questions even if they're about offensive techniques. "How does SQL injection work?" — allowed (defensive learning). "Write a SQL injection attack for example.com" — blocked (helping a specific attack on a real target).
+
+🔹 What just happened (the important part)
+You just proved that a separate, fast classifier can reliably distinguish safe educational questions from harmful ones — even subtle cases like "How does SQL injection work?" (allowed — defensive learning) vs "Write a phishing email targeting Acme Corp" (blocked — targeted attack).
+This is the doorman. Now in Step 4.1.2, we'll plug it into the main /chat endpoint so every question gets checked before reaching the AI.
+
+Multi-layer safety (defense in depth): Instead of relying on a single safety mechanism, real AI systems use multiple layers. Our doorman is a separate, fast classifier that runs before the main AI call. Even if a clever prompt fools the main system prompt, the doorman catches it first — and vice versa. Defense in depth is a fundamental cybersecurity principle (which is appropriate here!).
