@@ -14,7 +14,7 @@ from groq import Groq
 from database import save_message, get_history
 from retriever import retrieve
 from guardrail import is_safe
-from hint_system import is_how_to, generate_hints
+from hint_system import is_how_to, generate_hints, is_mistake_diagnosis, diagnose_mistake
 
 # --- Configuration ----------------------------------------------------------
 
@@ -222,7 +222,56 @@ def chat(request: ChatRequest):
             "assistantMessage": assistant_message,
             "timing": {"processingMs": processing_ms},
         }
+    # 2a. Mistake-diagnosis check — is the student showing us a wrong answer?
+    is_mistake = is_mistake_diagnosis(request.query)
+    _mark("classify_mistake")
 
+    if is_mistake:
+        # Retrieve course material — diagnoses benefit from grounding
+        retrieval = retrieve(request.query, n_results=4)
+        _mark("retrieve")
+
+        if retrieval["has_good_match"]:
+            labelled_chunks = []
+            for module, chunk in zip(retrieval["modules"], retrieval["chunks"]):
+                labelled_chunks.append(f"[From {module}]\n{chunk}")
+            course_context = "\n\n---\n\n".join(labelled_chunks)
+        else:
+            course_context = ""
+
+        # Generate the structured 3-paragraph diagnosis
+        diagnosis_text = diagnose_mistake(request.query, course_context)
+        _mark("diagnose_mistake")
+
+        assistant_message = {
+            "messageId": new_message_id("assist"),
+            "createdAt": now_iso(),
+            "role": "assistant",
+            "text": diagnosis_text,
+            "topicHint": "explain_mistake",
+            "sources": [],
+            "confidence": None,
+        }
+        save_message(
+            message_id=assistant_message["messageId"],
+            user_id=request.userId,
+            role="assistant",
+            text=diagnosis_text,
+            metadata=metadata_dict,
+        )
+        _mark("save_assistant_msg")
+
+        processing_ms = int(
+            (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+        )
+        print(f"⏱  TIMINGS (ms) [mistake]: {timings} | total {processing_ms}")
+        return {
+            "userMessage": user_message,
+            "assistantMessage": assistant_message,
+            "timing": {"processingMs": processing_ms},
+        }
+
+    
     # 2b. Smart detection — is this a how-to question?
     how_to = is_how_to(request.query)
     _mark("classify_how_to")
