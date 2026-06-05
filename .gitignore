@@ -1,4 +1,9 @@
 venv/
-.env
 __pycache__/
 *.pyc
+.env
+chroma_db/
+course_notes/
+.vscode/
+*.log
+.DS_Store
