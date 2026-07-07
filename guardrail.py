@@ -38,36 +38,44 @@ UNSAFE: <short reason>
 """
 
 
-def is_safe(question: str) -> dict:
+def is_safe(question: str, recent_context: str = "") -> dict:
     """
     Classify a question as safe or unsafe.
-    Returns a dict:
-      - 'safe' : bool
-      - 'reason' : str (only meaningful when safe is False)
+    Returns a dict: { 'safe': bool, 'reason': str }
+    Accepts optional recent_context (last 2 turns) to handle follow-ups.
     """
+    # Build the message — include context if provided
+    if recent_context:
+        user_content = (
+            f"Recent conversation:\n{recent_context}\n\n"
+            f"New student message:\n{question}\n\n"
+            "Classify the NEW message, but use the conversation context to "
+            "understand short follow-ups like 'explain more' or 'I don't get it'. "
+            "If the previous topic was cybersecurity-related, treat such follow-ups "
+            "as SAFE."
+        )
+    else:
+        user_content = question
+
     response = _client.chat.completions.create(
         model=MODEL,
         messages=[
             {"role": "system", "content": GUARDRAIL_PROMPT},
-            {"role": "user", "content": question},
+            {"role": "user", "content": user_content},
         ],
-        temperature=0.0,   # we want consistent, deterministic answers
-        max_tokens=40,     # keep response tiny - we only need YES/NO
+        temperature=0.0,
+        max_tokens=40,
     )
 
     answer = response.choices[0].message.content.strip()
 
-    # Parse the response
     if answer.upper().startswith("SAFE"):
         return {"safe": True, "reason": ""}
     elif answer.upper().startswith("UNSAFE"):
-        # Extract the reason after "UNSAFE:"
         reason = answer.split(":", 1)[1].strip() if ":" in answer else "Off-topic"
         return {"safe": False, "reason": reason}
     else:
-        # If the model didn't follow the format, fail safe → block
         return {"safe": False, "reason": "Could not classify clearly"}
-
 
 # --- Quick test ---
 if __name__ == "__main__":

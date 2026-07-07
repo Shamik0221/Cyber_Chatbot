@@ -202,3 +202,11 @@ You just proved that a separate, fast classifier can reliably distinguish safe e
 This is the doorman. Now in Step 4.1.2, we'll plug it into the main /chat endpoint so every question gets checked before reaching the AI.
 
 Multi-layer safety (defense in depth): Instead of relying on a single safety mechanism, real AI systems use multiple layers. Our doorman is a separate, fast classifier that runs before the main AI call. Even if a clever prompt fools the main system prompt, the doorman catches it first — and vice versa. Defense in depth is a fundamental cybersecurity principle (which is appropriate here!).
+
+How to describe what you've built (for resume/portfolio)
+Here's the honest one-line version you can use anywhere:
+
+CyberMentor — RAG-based AI Tutor for Cybersecurity Courses
+Built a production-grade RAG chatbot that grounds answers in 250 pages of course material using local embeddings (sentence-transformers) and a Chroma vector database. Features include a two-layer safety system (fast pre-check + tuned system prompt), progressive-hint UX for problem-solving questions, and a mistake-diagnosis feature that explains student misconceptions paragraph by paragraph. Backend: FastAPI + Supabase PostgreSQL. Frontend: HTML/CSS/JS floating widget. LLM: Groq (Llama 3.3 + Llama 3.1 8B for fast classification).
+
+That's a real-engineer description of a real-engineer project. You can take that to interviews.

@@ -55,6 +55,34 @@ General rules:
 - Never claim something is "in the course" if it isn't.
 """
 
+# --- Conversation context helper -------------------------------------------
+
+def get_recent_context(user_id: str, max_messages: int = 2) -> str:
+    """
+    Fetch the last few messages for this user and format them as a
+    context string. Returns an empty string if there are no recent messages.
+
+    Only includes messages from the last 10 minutes — older ones are
+    treated as a separate session.
+    """
+    try:
+        history = get_history(user_id, limit=max_messages)
+    except Exception:
+        return ""
+
+    if not history:
+        return ""
+
+    # Build a simple "User: ... / Assistant: ..." block
+    lines = []
+    for msg in history:
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        text = msg.get("text", "").strip()
+        if text:
+            lines.append(f"{role}: {text}")
+
+    return "\n".join(lines)
+
 # --- FastAPI app ------------------------------------------------------------
 
 app = FastAPI(title="CyberMentor API", version="1.0.0")
@@ -62,7 +90,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://stackyonacademy.com",
+        "https://www.stackyonacademy.com",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -80,20 +113,28 @@ def new_message_id(prefix: str = "msg") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
-def call_groq(user_query: str, course_context: str, used_course_material: bool) -> str:
-    """Send the user's question to Groq with optional retrieved course context."""
+def call_groq(user_query: str, course_context: str, used_course_material: bool, recent_context: str = "") -> str:
+    """Send the user's question to Groq with optional retrieved course context and recent conversation."""
+
+    # Build the prior conversation block if any
+    prior_block = f"Recent conversation:\n{recent_context}\n\n" if recent_context else ""
+
     if used_course_material:
         user_message = (
+            f"{prior_block}"
             f"Course Material:\n{course_context}\n\n"
             f"Student Question:\n{user_query}"
         )
     else:
         user_message = (
+            f"{prior_block}"
             f"(NOTE: No relevant course material was retrieved for this question. "
             f"If the question is about cybersecurity, answer it using your general "
             f"cybersecurity knowledge and end with the line: "
             f"'Source: General cybersecurity knowledge (not in course)'. "
-            f"If it is not about cybersecurity, refuse as instructed.)\n\n"
+            f"If it is not about cybersecurity, refuse as instructed. "
+            f"If this is a follow-up like 'explain more' or 'I don't understand', "
+            f"use the recent conversation above to know what topic to address.)\n\n"
             f"Student Question:\n{user_query}"
         )
 
@@ -106,7 +147,6 @@ def call_groq(user_query: str, course_context: str, used_course_material: bool) 
         temperature=0.3,
     )
     return response.choices[0].message.content
-
 
 # --- Request/Response models -----------------------------------------------
 
@@ -185,8 +225,11 @@ def chat(request: ChatRequest):
     )
     _mark("save_user_msg")
 
-    # 2. DOORMAN — pre-check the question
-    safety = is_safe(request.query)
+    # 2a. Fetch recent conversation context (for handling follow-ups)
+    recent_context = get_recent_context(request.userId, max_messages=2)
+
+    # 2b. DOORMAN — pre-check the question (now context-aware)
+    safety = is_safe(request.query, recent_context=recent_context)
     _mark("doorman")
 
     if not safety["safe"]:
@@ -223,7 +266,7 @@ def chat(request: ChatRequest):
             "timing": {"processingMs": processing_ms},
         }
     # 2a. Mistake-diagnosis check — is the student showing us a wrong answer?
-    is_mistake = is_mistake_diagnosis(request.query)
+    is_mistake = is_mistake_diagnosis(request.query, recent_context=recent_context)
     _mark("classify_mistake")
 
     if is_mistake:
@@ -273,7 +316,7 @@ def chat(request: ChatRequest):
 
     
     # 2b. Smart detection — is this a how-to question?
-    how_to = is_how_to(request.query)
+    how_to = is_how_to(request.query, recent_context=recent_context)
     _mark("classify_how_to")
 
     # 3. Retrieve relevant course chunks
@@ -332,7 +375,7 @@ def chat(request: ChatRequest):
 
     # 4. Call Groq for a normal definitional answer
     try:
-        reply_text = call_groq(request.query, course_context, used_course_material)
+        reply_text = call_groq(request.query, course_context, used_course_material, recent_context=recent_context)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
     _mark("groq_main")

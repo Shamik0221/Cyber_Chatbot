@@ -1,7 +1,7 @@
 """
 hint_system.py
-Decides if a question is a "how-to" / problem-solving question
-(deserves hints) and generates 3 progressive hints in one Groq call.
+Decides if a question is "how-to" (deserves hints), "mistake diagnosis"
+(deserves explanation of misconception), and generates the appropriate response.
 """
 
 import os
@@ -15,11 +15,13 @@ _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # Same fast small model as the doorman — classification is light work
 CLASSIFIER_MODEL = "llama-3.1-8b-instant"
-# Bigger model for hint generation — needs to be thoughtful
+# Bigger model for generation — needs to be thoughtful
 HINTS_MODEL = "llama-3.3-70b-versatile"
 
 
-# ---- Part 1: Decide if a question deserves hints --------------------------
+# ===========================================================================
+# === HOW-TO Classifier =====================================================
+# ===========================================================================
 
 CLASSIFIER_PROMPT = """You are a classifier. Given a student's cybersecurity question,
 decide if it is a "how-to / problem-solving" question that benefits from progressive
@@ -44,13 +46,20 @@ DEFINITIONAL
 """
 
 
-def is_how_to(question: str) -> bool:
+def is_how_to(question: str, recent_context: str = "") -> bool:
     """Return True if the question is problem-solving, False if it's definitional."""
+    user_content = question
+    if recent_context:
+        user_content = (
+            f"Recent conversation:\n{recent_context}\n\n"
+            f"New message: {question}"
+        )
+
     response = _client.chat.completions.create(
         model=CLASSIFIER_MODEL,
         messages=[
             {"role": "system", "content": CLASSIFIER_PROMPT},
-            {"role": "user", "content": question},
+            {"role": "user", "content": user_content},
         ],
         temperature=0.0,
         max_tokens=10,
@@ -59,7 +68,9 @@ def is_how_to(question: str) -> bool:
     return answer.startswith("HOW_TO")
 
 
-# ---- Part 2: Generate 3 progressive hints in one call ---------------------
+# ===========================================================================
+# === Generate three progressive hints in one call ==========================
+# ===========================================================================
 
 HINTS_PROMPT = """You are CyberMentor, a cybersecurity tutor. The student has asked
 a "how-to / problem-solving" question. Instead of giving the full answer immediately,
@@ -85,11 +96,7 @@ Rules:
 
 
 def generate_hints(question: str, course_context: str = "") -> dict:
-    """
-    Generate three progressive hints for a how-to question.
-    Returns dict with keys 'hint1', 'hint2', 'hint3'.
-    Falls back gracefully if JSON parsing fails.
-    """
+    """Generate three progressive hints for a how-to question."""
     user_message = (
         f"Course Material:\n{course_context if course_context else '(none provided)'}\n\n"
         f"Student Question:\n{question}"
@@ -105,7 +112,7 @@ def generate_hints(question: str, course_context: str = "") -> dict:
     )
     raw = response.choices[0].message.content.strip()
 
-    # Try to extract a JSON object even if the model wrapped it in extra text
+    # Extract JSON even if model wrapped it in extra text
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if match:
         try:
@@ -118,14 +125,16 @@ def generate_hints(question: str, course_context: str = "") -> dict:
         except json.JSONDecodeError:
             pass
 
-    # Fallback if the model didn't return clean JSON
+    # Fallback
     return {
         "hint1": "Think about what tools or techniques cybersecurity professionals use for this kind of problem.",
         "hint2": "Consider the typical workflow: information gathering, then identifying targets, then testing.",
-        "hint3": raw,  # at least show the model's reply rather than nothing
+        "hint3": raw,
     }
+
+
 # ===========================================================================
-# === Mistake Diagnosis — recognize and explain a student's wrong answer ====
+# === Mistake Diagnosis Classifier ==========================================
 # ===========================================================================
 
 MISTAKE_CLASSIFIER_PROMPT = """You are a classifier. Decide whether a student's
@@ -152,13 +161,20 @@ NORMAL
 """
 
 
-def is_mistake_diagnosis(question: str) -> bool:
+def is_mistake_diagnosis(question: str, recent_context: str = "") -> bool:
     """Return True if the student is asking us to diagnose their wrong answer."""
+    user_content = question
+    if recent_context:
+        user_content = (
+            f"Recent conversation:\n{recent_context}\n\n"
+            f"New message: {question}"
+        )
+
     response = _client.chat.completions.create(
         model=CLASSIFIER_MODEL,
         messages=[
             {"role": "system", "content": MISTAKE_CLASSIFIER_PROMPT},
-            {"role": "user", "content": question},
+            {"role": "user", "content": user_content},
         ],
         temperature=0.0,
         max_tokens=10,
@@ -166,6 +182,10 @@ def is_mistake_diagnosis(question: str) -> bool:
     answer = response.choices[0].message.content.strip().upper()
     return answer.startswith("MISTAKE")
 
+
+# ===========================================================================
+# === Mistake Diagnosis Generator ===========================================
+# ===========================================================================
 
 MISTAKE_DIAGNOSIS_PROMPT = """You are CyberMentor, a patient cybersecurity tutor.
 
@@ -185,9 +205,7 @@ knowledge.
 
 Structure your response in 3 short paragraphs:
 - Paragraph 1: Acknowledge their answer and identify the misconception
-  (e.g., "Your answer of X suggests you were thinking about Y, which is a
-  reasonable connection because...")
-- Paragraph 2: Explain why X is actually wrong here, and what the correct
+- Paragraph 2: Explain why their answer is wrong here, and what the correct
   concept is (with the reasoning, not just the label)
 - Paragraph 3: One sentence of encouragement + one practical takeaway.
 
@@ -216,7 +234,10 @@ def diagnose_mistake(question: str, course_context: str = "") -> str:
     )
     return response.choices[0].message.content.strip()
 
-# ---- Quick test when run directly -----------------------------------------
+
+# ===========================================================================
+# === Quick test when run directly ==========================================
+# ===========================================================================
 
 if __name__ == "__main__":
     classifier_tests = [
