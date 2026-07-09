@@ -27,6 +27,18 @@
     return;
   }
 
+  // ---- DOM-ready guard --------------------------------------------------
+  // Everything that touches document.body / document.head must wait until
+  // the page has a <body>. This makes the widget safe to load from <head>,
+  // <body>, early, or late — regardless of where the LMS places the script.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initWidget);
+  } else {
+    initWidget();
+  }
+
+  function initWidget() {
+
   var BUBBLE_SIZE = 70;
   var SAFE_MARGIN = 12;
   var STORAGE_KEY = "cybermentor.bubblePos";
@@ -294,4 +306,6 @@
   inputEl.addEventListener("keypress", function (e) { if (e.key === "Enter") sendMessage(); });
 
   initBubblePosition();
+
+  } // ---- end initWidget ----
 })();
